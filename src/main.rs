@@ -1,18 +1,17 @@
-mod game_logic;
-
 #[macro_use]
 extern crate rocket;
+mod game_logic;
 
-use rocket::serde::{Deserialize, Serialize, json::Json};
-use std::collections::{HashSet};
-use std::error::Error;
 use lazy_static::lazy_static;
-use std::sync::{Mutex, MutexGuard};
+use rocket::serde::{json::Json, Deserialize, Serialize};
+use std::collections::HashSet;
+use std::error::Error;
 use std::str::FromStr;
-
+use std::sync::{Mutex, MutexGuard};
+use utoipa_swagger_ui::SwaggerUi;
+use utoipa::{OpenApi, ToSchema};
 use game_logic::BookingType;
 use game_logic::GameService;
-
 
 
 lazy_static! {
@@ -21,7 +20,7 @@ lazy_static! {
 }
 
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 #[serde(crate = "rocket::serde")]
 #[serde(rename_all = "camelCase")]
 struct CreateGameRequest {
@@ -29,14 +28,14 @@ struct CreateGameRequest {
 }
 
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 #[serde(crate = "rocket::serde")]
 #[serde(rename_all = "camelCase")]
 struct DiceRollRequest {
     dice_to_keep: Vec<i32>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 #[serde(crate = "rocket::serde")]
 #[serde(rename_all = "camelCase")]
 struct BookRollRequest {
@@ -44,7 +43,7 @@ struct BookRollRequest {
 }
 
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct PlayerData {
     name: String,
@@ -62,7 +61,7 @@ impl PlayerData {
 }
 
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 struct GameResponse {
     game_id: String,
@@ -75,7 +74,12 @@ struct GameResponse {
     roll_round: i32,
 }
 
-
+#[utoipa::path(
+    request_body = CreateGameRequest,
+    responses(
+            (status = 200, description = "Create a new game", body = GameResponse)
+    )
+)]
 #[post("/api/v1/game", format = "json", data = "<player_request>")]
 fn post_player_names(player_request: Json<CreateGameRequest>) -> Json<GameResponse> {
     let player_names = &player_request.player_names;
@@ -87,6 +91,11 @@ fn post_player_names(player_request: Json<CreateGameRequest>) -> Json<GameRespon
     create_return_data(game.game_id, game_service)
 }
 
+#[utoipa::path(
+    responses(
+            (status = 200, description = "Retrieve a game", body = GameResponse)
+    )
+)]
 #[get("/api/v1/game/<game_id>")]
 fn get_player_names(game_id: String) -> Json<GameResponse> {
     let game_service = GAME_SERVICE.lock().unwrap();
@@ -94,6 +103,12 @@ fn get_player_names(game_id: String) -> Json<GameResponse> {
     create_return_data(game_id, game_service)
 }
 
+#[utoipa::path(
+    request_body = DiceRollRequest,
+    responses(
+            (status = 200, description = "(Re)-roll the dice", body = GameResponse)
+    )
+)]
 #[post("/api/v1/game/<game_id>/roll", format = "json", data = "<dice_roll_request>")]
 fn roll(game_id: String, dice_roll_request: Json<DiceRollRequest>) -> Json<GameResponse> {
     let game_service = GAME_SERVICE.lock().unwrap();
@@ -107,7 +122,12 @@ fn roll(game_id: String, dice_roll_request: Json<DiceRollRequest>) -> Json<GameR
     create_return_data(game_id, game_service)
 }
 
-
+#[utoipa::path(
+    request_body = BookRollRequest,
+    responses(
+            (status = 200, description = "Book a dice roll to score", body = GameResponse)
+    )
+)]
 #[post("/api/v1/game/<game_id>/book", format = "json", data = "<dice_book_request>")]
 fn book(game_id: String, dice_book_request: Json<BookRollRequest>) -> Json<GameResponse> {
     let game_service = GAME_SERVICE.lock().unwrap();
@@ -167,9 +187,28 @@ fn create_return_data(game_id: String, game_service: MutexGuard<GameService>) ->
 #[rocket::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let cors = rocket_cors::CorsOptions { ..Default::default() }.to_cors()?;
+
+    #[derive(OpenApi)]
+    #[openapi(
+        paths(
+            post_player_names,
+            get_player_names,
+            roll,
+            book
+        ),
+        components(
+            schemas(GameResponse, CreateGameRequest, DiceRollRequest, BookRollRequest, PlayerData)
+        ),
+    )]
+    struct ApiDoc;
+
     let _ = rocket::build()
         .configure(rocket::Config::figment().merge(("port", 8080)))
         .mount("/", routes![post_player_names, get_player_names, roll, book])
+        .mount(
+            "/",
+            SwaggerUi::new("/swagger-ui/<_..>").url("/api-docs/openapi.json", ApiDoc::openapi()),
+        )
         .attach(cors)
         .launch()
         .await?;
