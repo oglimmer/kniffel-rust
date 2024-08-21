@@ -80,7 +80,7 @@ struct GameResponse {
             (status = 200, description = "Create a new game", body = GameResponse)
     )
 )]
-#[post("/api/v1/game", format = "json", data = "<player_request>")]
+#[post("/api/v1/game/<_..>", rank = 5, format = "json", data = "<player_request>")]
 fn post_player_names(player_request: Json<CreateGameRequest>) -> Json<GameResponse> {
     let player_names = &player_request.player_names;
 
