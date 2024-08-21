@@ -203,7 +203,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     struct ApiDoc;
 
     let _ = rocket::build()
-        .configure(rocket::Config::figment().merge(("port", 8080)))
+        .configure(rocket::Config::figment()
+            .merge(("port", 8080))
+            .merge(("address", "0.0.0.0")))
         .mount("/", routes![post_player_names, get_player_names, roll, book])
         .mount(
             "/",

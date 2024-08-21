@@ -3,6 +3,9 @@ name = "kniffel"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "kniffel"  # Optional if your binary name is the same as your project name
+
 [dependencies]
 rocket = { version = "0.5.1", features = ["json"] }
 rocket_cors = "0.6.0"
