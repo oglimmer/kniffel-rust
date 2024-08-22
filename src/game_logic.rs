@@ -6,7 +6,6 @@ use rand::Rng;
 use rocket::serde::{Deserialize, Serialize};
 
 
-
 /// Calculates the score for a specific value (1 to 6) based on its occurrences in `dice_rolls`.
 pub fn get_score_1_to_6(dice_rolls: &[i32; 5], value_to_score: i32) -> i32 {
     dice_rolls
@@ -191,6 +190,9 @@ pub enum GameState {
 
     /// The player has to book the dice on the table into one category.
     Book,
+
+    /// The game has ended
+    Ended,
 }
 
 impl fmt::Display for GameState {
@@ -198,6 +200,7 @@ impl fmt::Display for GameState {
         match self {
             GameState::Roll => write!(f, "Roll"),
             GameState::Book => write!(f, "Book"),
+            GameState::Ended => write!(f, "Ended"),
         }
     }
 }
@@ -235,7 +238,6 @@ impl KniffelPlayer {
         self.used_booking_types.contains(booking_type)
     }
 }
-
 
 
 #[derive(Debug, Clone)]
@@ -295,7 +297,6 @@ impl KniffelGame {
 
     /// Books the current dice into a booking type. Each booking type must only be used once.
     pub fn book_dice_roll(&mut self, booking_type: BookingType) {
-
         let to_add_score = self.get_to_add_score(booking_type);
 
         if let Some(player) = self.players.get_mut(&self.current_player) {
@@ -319,10 +320,15 @@ impl KniffelGame {
         };
 
         if self.state == GameState::Roll {
-            self.current_player = self.find_next_player().name;
-            self.roll_round = 0;
-            let empty_array: [i32; 0] = [];
-            self.re_roll_dice(&empty_array);
+            let next_player = self.find_next_player();
+            self.current_player = next_player.name;
+            if next_player.used_booking_types.len() == 13 {
+                self.state = GameState::Ended;
+            } else {
+                self.roll_round = 0;
+                let empty_array: [i32; 0] = [];
+                self.re_roll_dice(&empty_array);
+            }
         }
     }
 

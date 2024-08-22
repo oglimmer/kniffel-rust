@@ -47,7 +47,6 @@ struct BookRollRequest {
 #[serde(rename_all = "camelCase")]
 struct PlayerData {
     name: String,
-
     score: i32,
 }
 
@@ -88,7 +87,7 @@ fn post_player_names(player_request: Json<CreateGameRequest>) -> Json<GameRespon
 
     let game = game_service.create_game(player_names);
 
-    create_return_data(game.game_id, game_service)
+    create_return_data(game.game_id, game_service).unwrap()
 }
 
 #[utoipa::path(
@@ -97,7 +96,7 @@ fn post_player_names(player_request: Json<CreateGameRequest>) -> Json<GameRespon
     )
 )]
 #[get("/api/v1/game/<game_id>")]
-fn get_player_names(game_id: String) -> Json<GameResponse> {
+fn get_player_names(game_id: String) -> Option<Json<GameResponse>> {
     let game_service = GAME_SERVICE.lock().unwrap();
 
     create_return_data(game_id, game_service)
@@ -110,10 +109,10 @@ fn get_player_names(game_id: String) -> Json<GameResponse> {
     )
 )]
 #[post("/api/v1/game/<game_id>/roll", format = "json", data = "<dice_roll_request>")]
-fn roll(game_id: String, dice_roll_request: Json<DiceRollRequest>) -> Json<GameResponse> {
+fn roll(game_id: String, dice_roll_request: Json<DiceRollRequest>) -> Option<Json<GameResponse>> {
     let game_service = GAME_SERVICE.lock().unwrap();
 
-    let mut game = game_service.get_game(game_id.to_string()).unwrap();
+    let mut game = game_service.get_game(game_id.to_string())?;
 
     game.re_roll_dice(&dice_roll_request.dice_to_keep);
 
@@ -126,13 +125,16 @@ fn roll(game_id: String, dice_roll_request: Json<DiceRollRequest>) -> Json<GameR
     request_body = BookRollRequest,
     responses(
             (status = 200, description = "Book a dice roll to score", body = GameResponse)
+    ),
+    params(
+        ("game_id" = String, Path, description = "Game id to score"),
     )
 )]
 #[post("/api/v1/game/<game_id>/book", format = "json", data = "<dice_book_request>")]
-fn book(game_id: String, dice_book_request: Json<BookRollRequest>) -> Json<GameResponse> {
+fn book(game_id: String, dice_book_request: Json<BookRollRequest>) -> Option<Json<GameResponse>> {
     let game_service = GAME_SERVICE.lock().unwrap();
 
-    let mut game = game_service.get_game(game_id.to_string()).unwrap();
+    let mut game = game_service.get_game(game_id.to_string())?;
 
     game.book_dice_roll(BookingType::from_str(&dice_book_request.booking_type.to_string()).unwrap());
 
@@ -141,46 +143,48 @@ fn book(game_id: String, dice_book_request: Json<BookRollRequest>) -> Json<GameR
     create_return_data(game_id, game_service)
 }
 
-fn create_return_data(game_id: String, game_service: MutexGuard<GameService>) -> Json<GameResponse> {
-    let game = game_service.get_game(game_id.to_string()).unwrap();
+fn create_return_data(game_id: String, game_service: MutexGuard<GameService>) -> Option<Json<GameResponse>> {
+    if let Some(game) = game_service.get_game(game_id.to_string()) {
+        // Define the full set of BookingType
+        let full_set: HashSet<BookingType> = [
+            BookingType::Ones,
+            BookingType::Twos,
+            BookingType::Threes,
+            BookingType::Fours,
+            BookingType::Fives,
+            BookingType::Sixes,
+            BookingType::ThreeOfAKind,
+            BookingType::FourOfAKind,
+            BookingType::FullHouse,
+            BookingType::SmallStraight,
+            BookingType::LargeStraight,
+            BookingType::Kniffel,
+            BookingType::Chance,
+        ]
+            .iter()
+            .cloned()
+            .collect();
 
-    // Define the full set of BookingType
-    let full_set: HashSet<BookingType> = [
-        BookingType::Ones,
-        BookingType::Twos,
-        BookingType::Threes,
-        BookingType::Fours,
-        BookingType::Fives,
-        BookingType::Sixes,
-        BookingType::ThreeOfAKind,
-        BookingType::FourOfAKind,
-        BookingType::FullHouse,
-        BookingType::SmallStraight,
-        BookingType::LargeStraight,
-        BookingType::Kniffel,
-        BookingType::Chance,
-    ]
-        .iter()
-        .cloned()
-        .collect();
+        let player = game.players.get(&game.current_player);
 
-    let player = game.players.get(&game.current_player);
+        let inverted_set: HashSet<BookingType> = full_set
+            .difference(&player.unwrap().used_booking_types)
+            .cloned()
+            .collect();
 
-    let inverted_set: HashSet<BookingType> = full_set
-        .difference(&player.unwrap().used_booking_types)
-        .cloned()
-        .collect();
-
-    Json(GameResponse {
-        game_id: game.game_id,
-        player_data: game.players.values().map(|e| PlayerData::new(e.name.clone(), e.score)).collect(),
-        current_player_name: game.current_player,
-        state: game.state.to_string().to_uppercase(),
-        used_booking_types: player.unwrap().used_booking_types.iter().map(|bt| bt.to_string()).collect(),
-        available_booking_types: inverted_set.iter().map(|bt| bt.to_string()).collect(),
-        dice_rolls: game.dice_rolls,
-        roll_round: game.roll_round,
-    })
+        Some(Json(GameResponse {
+            game_id: game.game_id,
+            player_data: game.players.values().map(|e| PlayerData::new(e.name.clone(), e.score)).collect(),
+            current_player_name: game.current_player,
+            state: game.state.to_string().to_uppercase(),
+            used_booking_types: player.unwrap().used_booking_types.iter().map(|bt| bt.to_string()).collect(),
+            available_booking_types: inverted_set.iter().map(|bt| bt.to_string()).collect(),
+            dice_rolls: game.dice_rolls,
+            roll_round: game.roll_round,
+        }))
+    } else {
+        None
+    }
 }
 
 
