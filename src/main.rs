@@ -1,24 +1,20 @@
 #[macro_use]
 extern crate rocket;
 mod game_logic;
+mod scoring;
+mod data_persistence;
 
-use lazy_static::lazy_static;
 use rocket::serde::{json::Json, Deserialize, Serialize};
 use std::collections::HashSet;
 use std::error::Error;
 use std::str::FromStr;
-use std::sync::{Mutex, MutexGuard};
 use utoipa_swagger_ui::SwaggerUi;
 use utoipa::{OpenApi, ToSchema};
 use game_logic::BookingType;
-use game_logic::GameService;
-
-
-lazy_static! {
-    // Use Mutex to ensure thread safety
-    static ref GAME_SERVICE: Mutex<GameService> = Mutex::new(GameService::new());
-}
-
+use data_persistence::persist_new_game;
+use data_persistence::load_game_from_persistent_store;
+use data_persistence::update_game_to_persistent_store;
+use crate::game_logic::{KniffelGame, KniffelPlayer};
 
 #[derive(Deserialize, ToSchema)]
 #[serde(crate = "rocket::serde")]
@@ -83,11 +79,17 @@ struct GameResponse {
 fn post_player_names(player_request: Json<CreateGameRequest>) -> Json<GameResponse> {
     let player_names = &player_request.player_names;
 
-    let game_service = GAME_SERVICE.lock().unwrap();
+    let players_vec: Vec<KniffelPlayer> = player_names
+        .into_iter()
+        .map(KniffelPlayer::new)
+        .collect();
 
-    let game = game_service.create_game(player_names);
+    let kniffel_game = KniffelGame::new(players_vec);
+    let game_id = kniffel_game.game_id.to_string();
 
-    create_return_data(game.game_id, game_service).unwrap()
+    persist_new_game(kniffel_game);
+
+    create_return_data(game_id).expect("Failed to create return data")
 }
 
 #[utoipa::path(
@@ -97,9 +99,7 @@ fn post_player_names(player_request: Json<CreateGameRequest>) -> Json<GameRespon
 )]
 #[get("/api/v1/game/<game_id>")]
 fn get_player_names(game_id: String) -> Option<Json<GameResponse>> {
-    let game_service = GAME_SERVICE.lock().unwrap();
-
-    create_return_data(game_id, game_service)
+    create_return_data(game_id)
 }
 
 #[utoipa::path(
@@ -110,15 +110,13 @@ fn get_player_names(game_id: String) -> Option<Json<GameResponse>> {
 )]
 #[post("/api/v1/game/<game_id>/roll", format = "json", data = "<dice_roll_request>")]
 fn roll(game_id: String, dice_roll_request: Json<DiceRollRequest>) -> Option<Json<GameResponse>> {
-    let game_service = GAME_SERVICE.lock().unwrap();
-
-    let mut game = game_service.get_game(game_id.to_string())?;
+    let mut game = load_game_from_persistent_store(game_id.to_string())?;
 
     game.re_roll_dice(&dice_roll_request.dice_to_keep);
 
-    game_service.update_game(&game);
+    update_game_to_persistent_store(&game);
 
-    create_return_data(game_id, game_service)
+    create_return_data(game_id)
 }
 
 #[utoipa::path(
@@ -132,19 +130,17 @@ fn roll(game_id: String, dice_roll_request: Json<DiceRollRequest>) -> Option<Jso
 )]
 #[post("/api/v1/game/<game_id>/book", format = "json", data = "<dice_book_request>")]
 fn book(game_id: String, dice_book_request: Json<BookRollRequest>) -> Option<Json<GameResponse>> {
-    let game_service = GAME_SERVICE.lock().unwrap();
-
-    let mut game = game_service.get_game(game_id.to_string())?;
+    let mut game = load_game_from_persistent_store(game_id.to_string())?;
 
     game.book_dice_roll(BookingType::from_str(&dice_book_request.booking_type.to_string()).unwrap());
 
-    game_service.update_game(&game);
+    update_game_to_persistent_store(&game);
 
-    create_return_data(game_id, game_service)
+    create_return_data(game_id)
 }
 
-fn create_return_data(game_id: String, game_service: MutexGuard<GameService>) -> Option<Json<GameResponse>> {
-    if let Some(game) = game_service.get_game(game_id.to_string()) {
+fn create_return_data(game_id: String) -> Option<Json<GameResponse>> {
+    if let Some(game) = load_game_from_persistent_store(game_id.to_string()) {
         // Define the full set of BookingType
         let full_set: HashSet<BookingType> = [
             BookingType::Ones,
@@ -172,9 +168,14 @@ fn create_return_data(game_id: String, game_service: MutexGuard<GameService>) ->
             .cloned()
             .collect();
 
+        let mut player_data: Vec<PlayerData> = game.players.values()
+            .map(|e| PlayerData::new(e.name.clone(), e.score))
+            .collect();
+        player_data.sort_by(|a, b| a.name.cmp(&b.name));
+
         Some(Json(GameResponse {
             game_id: game.game_id,
-            player_data: game.players.values().map(|e| PlayerData::new(e.name.clone(), e.score)).collect(),
+            player_data,
             current_player_name: game.current_player,
             state: game.state.to_string().to_uppercase(),
             used_booking_types: player.unwrap().used_booking_types.iter().map(|bt| bt.to_string()).collect(),
