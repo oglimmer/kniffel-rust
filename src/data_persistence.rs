@@ -1,10 +1,29 @@
+use std::env;
 use diesel::prelude::*;
 use diesel::{insert_into, sql_query, update, Connection, MysqlConnection, QueryDsl, RunQueryDsl};
 use diesel::result::Error;
-use kniffel::establish_connection;
-use kniffel::models::{Game, LastInsertId, Player};
+use dotenvy::dotenv;
+use crate::models::{Game, LastInsertId, Player};
 use crate::game_logic::{KniffelGame};
+use diesel_migrations::{MigrationHarness, embed_migrations, EmbeddedMigrations};
 
+pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
+
+fn establish_connection() -> MysqlConnection {
+    dotenv().ok();
+
+    let database_url = env::var("MYSQL_DATABASE_URL")
+        .or_else(|_| env::var("DATABASE_URL"))
+        .expect("DATABASE_URL must be set");
+    MysqlConnection::establish(&database_url)
+        .unwrap_or_else(|_| panic!("Error connecting to {}", database_url))
+}
+
+pub(crate) fn init() {
+    let conn = &mut establish_connection();
+    conn.run_pending_migrations(MIGRATIONS)
+        .expect("Failed to run database migrations");
+}
 
 pub(crate) fn persist_new_game(kniffel_game: KniffelGame) {
     let connection = &mut establish_connection();
@@ -31,7 +50,7 @@ fn get_last_id(con: &mut MysqlConnection) -> i32 {
 }
 
 fn insert_game_to_db(con: &mut MysqlConnection, kniffel_game: &KniffelGame) {
-    use kniffel::schema::games::dsl::*;
+    use crate::schema::games::dsl::*;
     let _ = insert_into(games)
         .values((
             game_id.eq(kniffel_game.game_id.clone()),
@@ -48,7 +67,7 @@ fn insert_game_to_db(con: &mut MysqlConnection, kniffel_game: &KniffelGame) {
 }
 
 fn insert_players_to_db(con: &mut MysqlConnection, kniffel_game: &KniffelGame, game_id_param: i32) {
-    use kniffel::schema::players::dsl::*;
+    use crate::schema::players::dsl::*;
 
     kniffel_game.players.values().for_each(|player_var| {
         let _ = insert_into(players)
@@ -76,7 +95,7 @@ pub(crate) fn load_game_from_persistent_store(game_id_param: String) -> Option<K
 }
 
 fn load_game(connection: &mut MysqlConnection, game_id_param: String) -> Option<Game> {
-    use kniffel::schema::games::dsl::*;
+    use crate::schema::games::dsl::*;
 
     let result = games
         .select(Game::as_select())
@@ -89,7 +108,7 @@ fn load_game(connection: &mut MysqlConnection, game_id_param: String) -> Option<
 }
 
 fn load_players(connection: &mut MysqlConnection, game_id_param: i32) -> Vec<Player> {
-    use kniffel::schema::players::dsl::*;
+    use crate::schema::players::dsl::*;
     let result_players = players
         .select(Player::as_select())
         .filter(game_id.eq(game_id_param))
@@ -115,7 +134,7 @@ pub(crate) fn update_game_to_persistent_store(kniffel_game: &KniffelGame) {
 }
 
 fn update_game_to_db(con: &mut MysqlConnection, game_id_param: i32, kniffel_game: &KniffelGame) {
-    use kniffel::schema::games::dsl::*;
+    use crate::schema::games::dsl::*;
     let _ = update(games)
         .filter(id.eq(game_id_param))
         .set((
@@ -131,7 +150,7 @@ fn update_game_to_db(con: &mut MysqlConnection, game_id_param: i32, kniffel_game
         .execute(con);
 }
 fn update_players_to_db(con: &mut MysqlConnection, game_id_param: i32, kniffel_game: &KniffelGame) {
-    use kniffel::schema::players::dsl::*;
+    use crate::schema::players::dsl::*;
 
     kniffel_game.players.values().for_each(|player_var| {
         let planer_name = player_var.name.to_string();

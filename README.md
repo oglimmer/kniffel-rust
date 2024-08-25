@@ -8,8 +8,22 @@ It is fully compatible with the Vue frontend there
 
 # build and run
 
+start a DB
+
+```bash
+docker run -d --rm -e MARIADB_ROOT_PASSWORD=root -e MARIADB_USER=kniffel -e MARIADB_PASSWORD=kniffel -e MARIADB_DATABASE=kniffel  -p 3306:3306 mariadb
+```
+
+wait until started, then...
+
 ```bash
 cargo run
 ```
 
 See OpenAPI at http://localhost:8080/swagger-ui/index.html
+
+# docker compose
+
+```bash
+docker compose up --build -d
+```

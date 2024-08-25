@@ -1,0 +1,25 @@
+services:
+  backend:
+    build: .
+    environment:
+      - DATABASE_URL=mysql://kniffel:kniffel@db/kniffel
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy      
+  db:
+    image: mariadb
+    environment:
+      - MARIADB_ROOT_PASSWORD=root
+      - MARIADB_USER=kniffel
+      - MARIADB_PASSWORD=kniffel
+      - MARIADB_DATABASE=kniffel
+    volumes:
+      - ./data-mariadb:/var/lib/mysql      
+    healthcheck:
+      test: ["CMD", "mariadb-admin" ,"ping", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 15s

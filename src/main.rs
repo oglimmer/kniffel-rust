@@ -3,6 +3,9 @@ extern crate rocket;
 mod game_logic;
 mod scoring;
 mod data_persistence;
+mod models;
+mod schema;
+
 
 use rocket::serde::{json::Json, Deserialize, Serialize};
 use std::collections::HashSet;
@@ -14,6 +17,7 @@ use game_logic::BookingType;
 use data_persistence::persist_new_game;
 use data_persistence::load_game_from_persistent_store;
 use data_persistence::update_game_to_persistent_store;
+use crate::data_persistence::init;
 use crate::game_logic::{KniffelGame, KniffelPlayer};
 
 #[derive(Deserialize, ToSchema)]
@@ -191,6 +195,9 @@ fn create_return_data(game_id: String) -> Option<Json<GameResponse>> {
 
 #[rocket::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+
+    init();
+
     let cors = rocket_cors::CorsOptions { ..Default::default() }.to_cors()?;
 
     #[derive(OpenApi)]

@@ -1,11 +1,10 @@
 
-
 use rand::Rng;
 use rocket::serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::str::FromStr;
-use kniffel::models::{Game, Player};
+use crate::models::{Game, Player};
 use crate::scoring::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
