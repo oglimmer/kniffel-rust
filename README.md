@@ -8,10 +8,20 @@ It is fully compatible with the Vue frontend there
 
 # build and run
 
+you might need to install the mariadb/mysql client lib. it seemed to me that mysql v9 is not compatible.
+
+```bash
+# on macOS:
+brew install diesel # this installs mysql-client@8.4 and you might want to have the diesel-cli anyway
+export MYSQLCLIENT_VERSION=8.4
+export MYSQLCLIENT_LIB_DIR=/usr/local/Cellar/mysql-client@8.4/8.4.2/lib/ # make sure this is your path too
+```
+
 start a DB
 
 ```bash
-docker run -d --rm -e MARIADB_ROOT_PASSWORD=root -e MARIADB_USER=kniffel -e MARIADB_PASSWORD=kniffel -e MARIADB_DATABASE=kniffel  -p 3306:3306 mariadb
+docker run -d --rm -e MARIADB_ROOT_PASSWORD=root -e MARIADB_USER=kniffel \
+    -e MARIADB_PASSWORD=kniffel -e MARIADB_DATABASE=kniffel -p 3306:3306 mariadb
 ```
 
 wait until started, then...
