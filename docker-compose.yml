@@ -5,9 +5,6 @@ services:
       - DATABASE_URL=mysql://kniffel:kniffel@db/kniffel
     ports:
       - "8080:8080"
-    depends_on:
-      db:
-        condition: service_healthy      
   db:
     image: mariadb
     environment:
@@ -17,10 +14,3 @@ services:
       - MARIADB_DATABASE=kniffel
     volumes:
       - ./data-mariadb:/var/lib/mysql      
-    healthcheck:
-      # test: mariadb-admin ping -ukniffel -pkniffel && sleep 3 && mariadb-admin ping -ukniffel -pkniffel
-      test: mariadb-admin ping -ukniffel -pkniffel
-      interval: 5s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
