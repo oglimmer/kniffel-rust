@@ -1,32 +1,46 @@
-use std::env;
-use diesel::prelude::*;
-use diesel::{insert_into, sql_query, update, Connection, MysqlConnection, QueryDsl, RunQueryDsl};
-use diesel::result::Error;
-use dotenvy::dotenv;
+use crate::game_logic::KniffelGame;
 use crate::models::{Game, LastInsertId, Player};
-use crate::game_logic::{KniffelGame};
-use diesel_migrations::{MigrationHarness, embed_migrations, EmbeddedMigrations};
+use diesel::prelude::*;
+use diesel::r2d2::ConnectionManager;
+use diesel::r2d2::Pool;
+use diesel::result::Error;
+use diesel::{insert_into, sql_query, update, Connection, MysqlConnection, QueryDsl, RunQueryDsl};
+use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
+use dotenvy::dotenv;
+use std::env;
+use std::sync::Mutex;
+use lazy_static::lazy_static;
 
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 
-fn establish_connection() -> MysqlConnection {
+fn get_connection_pool() -> Pool<ConnectionManager<MysqlConnection>> {
     dotenv().ok();
 
-    let database_url = env::var("MYSQL_DATABASE_URL")
+    let url = env::var("MYSQL_DATABASE_URL")
         .or_else(|_| env::var("DATABASE_URL"))
         .expect("DATABASE_URL must be set");
-    MysqlConnection::establish(&database_url)
-        .unwrap_or_else(|_| panic!("Error connecting to {}", database_url))
+
+    let manager = ConnectionManager::<MysqlConnection>::new(url);
+    // Refer to the `r2d2` documentation for more methods to use
+    // when building a connection pool
+    Pool::builder()
+        .test_on_check_out(true)
+        .build(manager)
+        .expect("Could not build connection pool")
+}
+
+lazy_static! {
+    static ref POOL: Mutex<Pool<ConnectionManager<MysqlConnection>>> = Mutex::new(get_connection_pool());
 }
 
 pub(crate) fn init() {
-    let conn = &mut establish_connection();
+    let conn = &mut POOL.lock().unwrap().get().unwrap();
     conn.run_pending_migrations(MIGRATIONS)
         .expect("Failed to run database migrations");
 }
 
 pub(crate) fn persist_new_game(kniffel_game: KniffelGame) {
-    let connection = &mut establish_connection();
+    let connection = &mut POOL.lock().unwrap().get().unwrap();
     connection.transaction::<_, Error, _>(|con| {
         insert_game_to_db(con, &kniffel_game);
 
@@ -82,14 +96,14 @@ fn insert_players_to_db(con: &mut MysqlConnection, kniffel_game: &KniffelGame, g
 }
 
 pub(crate) fn load_game_from_persistent_store(game_id_param: String) -> Option<KniffelGame> {
-    let connection = &mut establish_connection();
+    let connection = &mut POOL.lock().unwrap().get().unwrap();
     let option_game = load_game(connection, game_id_param);
 
     let game = option_game.expect("failed to load game");
 
     let game_id_id = game.id;
 
-    let players = load_players(&mut establish_connection(), game_id_id);
+    let players = load_players(connection, game_id_id);
 
     Some(KniffelGame::from_db(game, players.as_slice()))
 }
@@ -119,7 +133,7 @@ fn load_players(connection: &mut MysqlConnection, game_id_param: i32) -> Vec<Pla
 }
 
 pub(crate) fn update_game_to_persistent_store(kniffel_game: &KniffelGame) {
-    let connection = &mut establish_connection();
+    let connection = &mut POOL.lock().unwrap().get().unwrap();
     {
         connection.transaction::<_, Error, _>(|con| {
             let option_game = load_game(con, kniffel_game.game_id.to_string());

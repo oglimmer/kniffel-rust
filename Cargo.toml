@@ -5,15 +5,15 @@ edition = "2021"
 
 
 [dependencies]
-rocket = { version = "0.5.1", features = ["json"] }
-rocket_cors = "0.6.0"
-serde = { version = "1.0.208", features = ["derive"] }
-serde_json = "1.0.125"
-uuid = { version = "1.10.0", features = ["v4"] }
-rand = "0.8.5"
-lazy_static = "1.5.0"
-utoipa = { version = "4.2.3", features = ["rocket_extras"] }
-utoipa-swagger-ui = { version = "7.1.0", features = ["rocket"] }
-diesel = { version = "2.2.0", features = ["mysql"] }
-diesel_migrations = { version = "2.2.0", features = ["mysql"] }
+rocket = { version = "0.5", features = ["json"] }
+rocket_cors = "0.6"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+uuid = { version = "1.10", features = ["v4"] }
+rand = "0.8"
+lazy_static = "1.5"
+utoipa = { version = "4.2", features = ["rocket_extras"] }
+utoipa-swagger-ui = { version = "7.1", features = ["rocket"] }
+diesel = { version = "2.2", features = ["mysql", "r2d2"] }
+diesel_migrations = { version = "2.2", features = ["mysql"] }
 dotenvy = "0.15"

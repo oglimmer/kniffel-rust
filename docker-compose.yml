@@ -18,7 +18,8 @@ services:
     volumes:
       - ./data-mariadb:/var/lib/mysql      
     healthcheck:
-      test: mariadb-admin ping -ukniffel -pkniffel && sleep 3 && mariadb-admin ping -ukniffel -pkniffel
+      # test: mariadb-admin ping -ukniffel -pkniffel && sleep 3 && mariadb-admin ping -ukniffel -pkniffel
+      test: mariadb-admin ping -ukniffel -pkniffel
       interval: 5s
       timeout: 5s
       retries: 5
