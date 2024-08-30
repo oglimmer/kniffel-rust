@@ -1,13 +1,13 @@
 
 use rand::Rng;
-use rocket::serde::{Deserialize, Serialize};
+use rocket::serde::{Deserialize};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::str::FromStr;
 use crate::models::{Game, Player};
 use crate::scoring::*;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum BookingType {
     Ones,
@@ -69,7 +69,7 @@ impl FromStr for BookingType {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
 pub enum GameState {
     /// The player has to select dice they want to keep. Check the round if this is the first or second re-roll phase.
     Roll,
@@ -191,7 +191,7 @@ impl KniffelGame {
         game
     }
 
-    pub fn from_db(game: Game, players: &[Player]) -> Self {
+    pub fn from_db(game: &Game, players: &[Player]) -> Self {
         let kniffel_players_map = convert_players(&players);
 
         let result: [i32; 5] = game.dice_rolls

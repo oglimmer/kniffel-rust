@@ -39,7 +39,7 @@ pub(crate) fn init() {
         .expect("Failed to run database migrations");
 }
 
-pub(crate) fn persist_new_game(kniffel_game: KniffelGame) {
+pub(crate) fn persist_new_game(kniffel_game: &KniffelGame) {
     let connection = &mut POOL.lock().unwrap().get().unwrap();
     connection.transaction::<_, Error, _>(|con| {
         insert_game_to_db(con, &kniffel_game);
@@ -95,7 +95,7 @@ fn insert_players_to_db(con: &mut MysqlConnection, kniffel_game: &KniffelGame, g
     });
 }
 
-pub(crate) fn load_game_from_persistent_store(game_id_param: String) -> Option<KniffelGame> {
+pub(crate) fn load_game_from_persistent_store(game_id_param: &String) -> Option<KniffelGame> {
     let connection = &mut POOL.lock().unwrap().get().unwrap();
     let option_game = load_game(connection, game_id_param);
 
@@ -105,10 +105,10 @@ pub(crate) fn load_game_from_persistent_store(game_id_param: String) -> Option<K
 
     let players = load_players(connection, game_id_id);
 
-    Some(KniffelGame::from_db(game, players.as_slice()))
+    Some(KniffelGame::from_db(&game, players.as_slice()))
 }
 
-fn load_game(connection: &mut MysqlConnection, game_id_param: String) -> Option<Game> {
+fn load_game(connection: &mut MysqlConnection, game_id_param: &String) -> Option<Game> {
     use crate::schema::games::dsl::*;
 
     let result = games
@@ -136,7 +136,7 @@ pub(crate) fn update_game_to_persistent_store(kniffel_game: &KniffelGame) {
     let connection = &mut POOL.lock().unwrap().get().unwrap();
     {
         connection.transaction::<_, Error, _>(|con| {
-            let option_game = load_game(con, kniffel_game.game_id.to_string());
+            let option_game = load_game(con, &kniffel_game.game_id);
             let game = option_game.expect("failed to load game");
 
             update_game_to_db(con, game.id, kniffel_game);

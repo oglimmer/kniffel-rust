@@ -24,7 +24,7 @@ docker run -d --rm -e MARIADB_ROOT_PASSWORD=root -e MARIADB_USER=kniffel \
     -e MARIADB_PASSWORD=kniffel -e MARIADB_DATABASE=kniffel -p 3306:3306 mariadb
 ```
 
-wait until started, then...
+start the REST API
 
 ```bash
 cargo run

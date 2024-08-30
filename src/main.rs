@@ -91,9 +91,9 @@ fn post_player_names(player_request: Json<CreateGameRequest>) -> Json<GameRespon
     let kniffel_game = KniffelGame::new(players_vec);
     let game_id = kniffel_game.game_id.to_string();
 
-    persist_new_game(kniffel_game);
+    persist_new_game(&kniffel_game);
 
-    create_return_data(game_id).expect("Failed to create return data")
+    create_return_data(&game_id).expect("Failed to create return data")
 }
 
 #[utoipa::path(
@@ -103,7 +103,7 @@ fn post_player_names(player_request: Json<CreateGameRequest>) -> Json<GameRespon
 )]
 #[get("/api/v1/game/<game_id>")]
 fn get_player_names(game_id: String) -> Option<Json<GameResponse>> {
-    create_return_data(game_id)
+    create_return_data(&game_id)
 }
 
 #[utoipa::path(
@@ -114,13 +114,13 @@ fn get_player_names(game_id: String) -> Option<Json<GameResponse>> {
 )]
 #[post("/api/v1/game/<game_id>/roll", format = "json", data = "<dice_roll_request>")]
 fn roll(game_id: String, dice_roll_request: Json<DiceRollRequest>) -> Option<Json<GameResponse>> {
-    let mut game = load_game_from_persistent_store(game_id.to_string())?;
+    let mut game = load_game_from_persistent_store(&game_id)?;
 
     game.re_roll_dice(&dice_roll_request.dice_to_keep);
 
     update_game_to_persistent_store(&game);
 
-    create_return_data(game_id)
+    create_return_data(&game_id)
 }
 
 #[utoipa::path(
@@ -134,17 +134,17 @@ fn roll(game_id: String, dice_roll_request: Json<DiceRollRequest>) -> Option<Jso
 )]
 #[post("/api/v1/game/<game_id>/book", format = "json", data = "<dice_book_request>")]
 fn book(game_id: String, dice_book_request: Json<BookRollRequest>) -> Option<Json<GameResponse>> {
-    let mut game = load_game_from_persistent_store(game_id.to_string())?;
+    let mut game = load_game_from_persistent_store(&game_id)?;
 
     game.book_dice_roll(BookingType::from_str(&dice_book_request.booking_type.to_string()).unwrap());
 
     update_game_to_persistent_store(&game);
 
-    create_return_data(game_id)
+    create_return_data(&game_id)
 }
 
-fn create_return_data(game_id: String) -> Option<Json<GameResponse>> {
-    if let Some(game) = load_game_from_persistent_store(game_id.to_string()) {
+fn create_return_data(game_id: &String) -> Option<Json<GameResponse>> {
+    if let Some(game) = load_game_from_persistent_store(game_id) {
         // Define the full set of BookingType
         let full_set: HashSet<BookingType> = [
             BookingType::Ones,
