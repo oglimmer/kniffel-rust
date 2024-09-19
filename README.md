@@ -12,9 +12,9 @@ you might need to install the mariadb/mysql client lib. it seemed to me that mys
 
 ```bash
 # on macOS:
-brew install diesel # this installs mysql-client@8.4 and you might want to have the diesel-cli anyway
-export MYSQLCLIENT_VERSION=8.4
-export MYSQLCLIENT_LIB_DIR=/usr/local/Cellar/mysql-client@8.4/8.4.2/lib/ # make sure this is your path too
+brew install mariadb-connector-c
+export MYSQLCLIENT_VERSION=3.4.1
+export MYSQLCLIENT_LIB_DIR=/opt/homebrew/Cellar/mariadb-connector-c/3.4.1/lib/ # make sure this is your path too
 ```
 
 start a DB
