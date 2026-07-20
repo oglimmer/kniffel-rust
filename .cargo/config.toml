@@ -1,0 +1,3 @@
+[env]
+MYSQLCLIENT_LIB_DIR = "/opt/homebrew/Cellar/mariadb-connector-c/3.4.1/lib/"
+MYSQLCLIENT_VERSION = "3.4.1"
